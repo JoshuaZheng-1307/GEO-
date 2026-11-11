@@ -1,0 +1,13 @@
+.venv/
+env/
+venv/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+Thumbs.db
+
+# 添加下面这两行，忽略前端的依赖和构建文件
+node_modules/
+dist/
+build/
