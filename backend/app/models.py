@@ -17,6 +17,10 @@ class User(Base):
     role = Column(String(16), default="user", nullable=False)   # admin / user
     token_balance = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    # 注册引导信息：公司名称 / 业务项目 / 是否已完成首次免费分析
+    company_name = Column(String(200), default="")
+    business = Column(String(500), default="")
+    onboarded = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=dt.datetime.utcnow, nullable=False)
 
     transactions = relationship(

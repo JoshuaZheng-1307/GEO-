@@ -2,7 +2,7 @@
 import datetime as dt
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class TaskCreate(BaseModel):
@@ -83,6 +83,9 @@ class UserOut(BaseModel):
     role: str
     token_balance: int
     is_active: bool
+    company_name: Optional[str] = ""
+    business: Optional[str] = ""
+    onboarded: bool = False
     created_at: dt.datetime
 
     class Config:
@@ -123,3 +126,33 @@ class ResetPasswordIn(BaseModel):
 class TokenInfoOut(BaseModel):
     task_cost: int
     signup_bonus: int
+
+
+class OnboardingIn(BaseModel):
+    """注册后的首次免费分析：公司名称 + 业务项目 + 官网链接。"""
+    company_name: str = Field(..., min_length=1, max_length=200)
+    business: str = Field("", max_length=500)
+    url: str
+
+    @field_validator("url")
+    @classmethod
+    def _check_url(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v.lower().startswith(("http://", "https://")):
+            raise ValueError("官网链接必须以 http:// 或 https:// 开头")
+        return v
+
+
+class AdminReportOut(BaseModel):
+    """管理端报告总览：报告 + 归属用户 + 任务信息。"""
+    id: int
+    task_id: int
+    task_name: Optional[str] = ""
+    url: Optional[str] = ""
+    username: Optional[str] = ""
+    user_id: Optional[int] = None
+    overall_score: Optional[float] = None
+    grade: Optional[str] = ""
+    grade_label: Optional[str] = ""
+    eeat_score: Optional[float] = None
+    created_at: dt.datetime

@@ -1,10 +1,10 @@
 """账号与计费路由：注册/登录/流水 + 管理员用户管理。"""
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import TokenTx, User
+from app.models import MonitorReport, MonitorTask, TokenTx, User
 from app.schemas import (LoginIn, RegisterIn, RechargeIn, ResetPasswordIn,
                          SetActiveIn, SetRoleIn, TokenInfoOut, TxOut, UserOut)
 from app.services.auth import (SIGNUP_BONUS, TASK_COST, charge_tokens,
@@ -180,6 +180,38 @@ def delete_user(user_id: int, admin: User = Depends(require_admin),
         raise HTTPException(400, "不能删除自己")
     db.delete(user)
     db.commit()
+
+
+@admin_router.get("/reports")
+def all_reports(limit: int = Query(100, ge=1, le=500),
+                q: str = Query("", description="按用户/任务名/URL 模糊搜索"),
+                db: Session = Depends(get_db)):
+    """全部用户的报告总览：报告 + 归属用户 + 任务名。"""
+    query = db.query(MonitorReport, MonitorTask, User)\
+        .outerjoin(MonitorTask, MonitorReport.task_id == MonitorTask.id)\
+        .outerjoin(User, MonitorTask.user_id == User.id)
+    if q.strip():
+        kw = f"%{q.strip()}%"
+        query = query.filter(or_(User.username.ilike(kw),
+                                 MonitorTask.name.ilike(kw),
+                                 MonitorTask.url.ilike(kw)))
+    rows = query.order_by(MonitorReport.created_at.desc()).limit(limit).all()
+    out = []
+    for rep, task, owner in rows:
+        out.append({
+            "id": rep.id,
+            "task_id": rep.task_id,
+            "task_name": getattr(task, "name", "") or "",
+            "url": getattr(task, "url", "") or "",
+            "username": getattr(owner, "username", "") or "",
+            "user_id": getattr(owner, "id", None),
+            "overall_score": rep.overall_score,
+            "grade": getattr(rep, "grade", "") or "",
+            "grade_label": getattr(rep, "grade_label", "") or "",
+            "eeat_score": ((rep.eeat or {}).get("overall") if isinstance(rep.eeat, dict) else None),
+            "created_at": rep.created_at,
+        })
+    return out
 
 
 @admin_router.get("/stats")

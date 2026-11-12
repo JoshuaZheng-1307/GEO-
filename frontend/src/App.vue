@@ -40,11 +40,16 @@
               <span v-if="auth.isAdmin.value" class="role-badge">管理员</span>
               <transition name="drop">
                 <div v-if="menuOpen" class="menu" @click.stop>
-                  <button @click="goAdmin">管理控制台</button>
+                  <button v-if="auth.isAdmin.value" @click="goAdmin">管理控制台</button>
                   <button class="danger" @click="logout">退出登录</button>
                 </div>
               </transition>
             </div>
+            <button class="logout-btn" title="退出登录" @click="logout">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+            </button>
           </template>
 
           <!-- 未登录 -->
@@ -215,6 +220,23 @@ nav { display: flex; align-items: center; gap: 6px; }
   border: 1px solid rgba(240, 164, 106, 0.35);
   padding: 2px 7px; border-radius: 999px;
 }
+.logout-btn {
+  margin-left: 2px;
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all var(--t-fast) var(--ease);
+}
+.logout-btn:hover {
+  color: #ff8a8a;
+  border-color: rgba(255, 120, 120, 0.45);
+  background: rgba(255, 120, 120, 0.1);
+}
+
 .menu {
   position: absolute; top: calc(100% + 8px); right: 0;
   min-width: 150px;

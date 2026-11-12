@@ -31,6 +31,10 @@
       </form>
 
       <p v-if="expired" class="expired">登录已过期，请重新登录</p>
+      <p class="admin-hint">
+        管理员账号：<code>admin</code> / <code>123456</code>
+        <span>（首次部署默认，登录后请尽快修改）</span>
+      </p>
     </div>
   </div>
 </template>
@@ -62,13 +66,19 @@ onMounted(async () => {
 async function submit() {
   error.value = ''
   loading.value = true
+  const isRegister = mode.value === 'register'
   try {
-    if (mode.value === 'register') {
+    if (isRegister) {
       await api.register({ username: username.value, password: password.value })
     }
     const { data } = await api.login({ username: username.value, password: password.value })
     auth.setLogin(data.access_token, data.user)
-    router.push(route.query.redirect || '/')
+    // 新注册用户（或尚未完成引导）先去填写公司信息，免费生成首份报告
+    if (isRegister || data.user?.onboarded === false) {
+      router.push('/onboarding')
+    } else {
+      router.push(route.query.redirect || '/')
+    }
   } catch (e) {
     error.value = e.message
   } finally {
@@ -150,6 +160,17 @@ form input:focus {
   padding: 8px 12px; margin: 0 0 12px;
 }
 .expired { text-align: center; font-size: 12px; color: #ffc857; margin-top: 14px; }
+.admin-hint {
+  margin: 18px 0 0; padding-top: 14px;
+  border-top: 1px dashed var(--border);
+  text-align: center; font-size: 11.5px; color: var(--text-mute);
+  line-height: 1.7;
+}
+.admin-hint code {
+  color: #a9c4ff; background: rgba(91,140,255,0.12);
+  padding: 1px 6px; border-radius: 4px; font-size: 11.5px;
+}
+.admin-hint span { display: block; opacity: 0.75; }
 
 .submit {
   width: 100%; padding: 11px 0;

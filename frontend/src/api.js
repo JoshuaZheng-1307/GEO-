@@ -47,9 +47,14 @@ export default {
   me: () => api.get('/auth/me'),
   myTransactions: (limit = 50) => api.get('/auth/transactions', { params: { limit } }),
 
+  // 注册引导（首次免费分析）
+  onboardingStatus: () => api.get('/onboarding/status'),
+  onboardingStart: (data) => api.post('/onboarding/start', data),
+
   // 管理员
   adminStats: () => api.get('/admin/stats'),
   adminUsers: (q = '') => api.get('/admin/users', { params: { q } }),
+  adminReports: (q = '', limit = 100) => api.get('/admin/reports', { params: { q, limit } }),
   adminUserTx: (userId, limit = 100) => api.get(`/admin/users/${userId}/transactions`, { params: { limit } }),
   adminRecharge: (userId, amount, note) => api.post(`/admin/users/${userId}/recharge`, { amount, note }),
   adminCreateUser: (data) => api.post('/admin/users', data),

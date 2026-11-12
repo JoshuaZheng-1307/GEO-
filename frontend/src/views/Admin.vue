@@ -1,9 +1,23 @@
 <template>
   <div class="admin">
     <header class="page-head reveal">
-      <h1>管理控制台</h1>
-      <p>用户管理 · token 充值 · 消费审计</p>
+      <div>
+        <h1>管理控制台</h1>
+        <p>用户管理 · token 充值 · 全站报告审计</p>
+      </div>
+      <button class="btn primary" @click="goAnalyze">＋ 分析公司官网</button>
     </header>
+
+    <div class="tabs reveal" :style="{ '--delay': '40ms' }">
+      <button :class="{ on: tab === 'users' }" @click="tab = 'users'">
+        用户与 token
+        <span class="count">{{ users.length }}</span>
+      </button>
+      <button :class="{ on: tab === 'reports' }" @click="switchReports">
+        全站报告
+        <span class="count">{{ reports.length }}</span>
+      </button>
+    </div>
 
     <!-- 总览 -->
     <div class="stats reveal" :style="{ '--delay': '60ms' }">
@@ -30,13 +44,13 @@
     </div>
 
     <!-- 工具栏 -->
-    <div class="toolbar reveal" :style="{ '--delay': '120ms' }">
+    <div v-show="tab === 'users'" class="toolbar reveal" :style="{ '--delay': '120ms' }">
       <input v-model.trim="q" class="search" placeholder="按用户名搜索…" @input="loadUsers" />
       <button class="btn primary" @click="openCreate">＋ 创建用户</button>
     </div>
 
     <!-- 用户表 -->
-    <div class="table-card reveal" :style="{ '--delay': '180ms' }">
+    <div v-show="tab === 'users'" class="table-card reveal" :style="{ '--delay': '180ms' }">
       <table>
         <thead>
           <tr>
@@ -82,6 +96,58 @@
         </tbody>
       </table>
       <p v-if="!users.length" class="empty">没有匹配的用户</p>
+    </div>
+
+    <!-- 报告总览 -->
+    <div v-show="tab === 'reports'" class="reports-wrap">
+      <div class="toolbar reveal" :style="{ '--delay': '120ms' }">
+        <input v-model.trim="rq" class="search" placeholder="按用户 / 任务名 / 网址搜索…" @input="loadReports" />
+        <button class="btn" @click="loadReports">刷新</button>
+      </div>
+
+      <div class="table-card reveal" :style="{ '--delay': '180ms' }">
+        <table>
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th>任务 / 官网</th>
+              <th>GEM</th>
+              <th>EEAT</th>
+              <th>生成时间</th>
+              <th class="ops-col">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in reports" :key="r.id">
+              <td>
+                <div class="cell-user">
+                  <span class="avatar">{{ (r.username || '?').slice(0, 1).toUpperCase() }}</span>
+                  <b>{{ r.username || '—' }}</b>
+                </div>
+              </td>
+              <td>
+                <div class="rep-task">{{ r.task_name || '—' }}</div>
+                <div class="rep-url">{{ r.url || '—' }}</div>
+              </td>
+              <td>
+                <span class="score" :class="gradeClass(r.overall_score)">
+                  {{ r.overall_score != null ? r.overall_score.toFixed(1) : '—' }}
+                </span>
+                <span class="grade">{{ r.grade || '' }}</span>
+              </td>
+              <td class="num">{{ r.eeat_score != null ? r.eeat_score.toFixed(1) : '—' }}</td>
+              <td class="mute">{{ fmtDate(r.created_at) }}</td>
+              <td class="ops-col">
+                <div class="ops">
+                  <button class="op tx" @click="openReport(r)">查看报告</button>
+                  <button class="op" @click="openRechargeById(r.user_id, r.username)">充值</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!reports.length" class="empty">暂无报告</p>
+      </div>
     </div>
 
     <!-- 充值弹窗 -->
@@ -156,13 +222,18 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../api'
 import { auth } from '../store/auth'
 
+const router = useRouter()
 const meId = computed(() => auth.state.user?.id)
 const stats = ref({})
 const users = ref([])
+const reports = ref([])
 const q = ref('')
+const rq = ref('')
+const tab = ref('users')
 const pricing = ref({ signup_bonus: 50 })
 
 const dlg = ref(null)          // null | recharge | create | tx
@@ -178,6 +249,7 @@ const dlgError = ref('')
 onMounted(async () => {
   loadStats()
   loadUsers()
+  loadReports()
   try { pricing.value = (await api.pricing()).data } catch { /* ignore */ }
 })
 
@@ -186,6 +258,28 @@ async function loadStats() {
 }
 async function loadUsers() {
   try { users.value = (await api.adminUsers(q.value)).data } catch { /* ignore */ }
+}
+async function loadReports() {
+  try { reports.value = (await api.adminReports(rq.value)).data } catch { /* ignore */ }
+}
+function switchReports() {
+  tab.value = 'reports'
+  if (!reports.value.length) loadReports()
+}
+function goAnalyze() { router.push('/onboarding') }
+function openReport(r) { router.push(`/reports/${r.id}`) }
+async function openRechargeById(userId, username) {
+  if (!userId) { alert('该报告没有关联用户'); return }
+  const u = users.value.find(x => x.id === userId)
+  if (u) { openRecharge(u); return }
+  openRecharge({ id: userId, username: username || `#${userId}`, token_balance: 0 })
+}
+function gradeClass(score) {
+  if (score == null) return ''
+  if (score >= 80) return 'a'
+  if (score >= 70) return 'b'
+  if (score >= 60) return 'c'
+  return 'd'
 }
 
 function fmtDate(s) {
@@ -284,8 +378,54 @@ async function openTx(u) {
 
 <style scoped>
 .admin { display: flex; flex-direction: column; gap: 18px; }
+.page-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+}
 .page-head h1 { margin: 0; font-size: 22px; }
 .page-head p { margin: 4px 0 0; font-size: 13px; color: var(--text-mute); }
+
+/* 分段 tab */
+.tabs {
+  display: inline-flex; gap: 4px; align-self: flex-start;
+  padding: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.tabs button {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 18px;
+  border: 1px solid transparent; border-radius: 999px;
+  background: transparent; color: var(--text-soft);
+  font-size: 13px; cursor: pointer;
+  transition: all var(--t-fast) var(--ease);
+}
+.tabs button:hover { color: var(--text); }
+.tabs button.on {
+  color: #fff;
+  background: rgba(91, 140, 255, 0.18);
+  border-color: rgba(91, 140, 255, 0.38);
+}
+.tabs .count {
+  font-size: 10.5px; font-weight: 700;
+  padding: 1px 7px; border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  font-feature-settings: 'tnum';
+}
+.tabs button.on .count { background: rgba(255,255,255,0.2); }
+
+.reports-wrap { display: flex; flex-direction: column; gap: 12px; }
+.rep-task { font-size: 13px; }
+.rep-url { font-size: 11px; color: var(--text-mute); margin-top: 2px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score { font-size: 15px; font-weight: 800; font-feature-settings: 'tnum'; }
+.score.a { color: #7be0a2; }
+.score.b { color: #6fe0ff; }
+.score.c { color: #ffc857; }
+.score.d { color: #ff8a8a; }
+.grade {
+  font-size: 10.5px; font-weight: 700; margin-left: 6px;
+  color: var(--text-mute);
+}
 
 /* 总览 */
 .stats {
